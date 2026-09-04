@@ -26,6 +26,6 @@ export const provider: ProviderDefinition = {
       ],
     },
   ],
-  homepageUrl: "https://mcp.dingtalk.com",
+  homepageUrl: "https://www.dingtalk.com",
   actions: dingTalkMcpActions,
 };
