@@ -21,7 +21,7 @@ export const provider: ProviderDefinition = {
           secret: true,
           placeholder: "https://mcp-gw.dingtalk.com/mserver/...",
           description:
-            "The secret Streamable HTTP URL of one DingTalk MCP marketplace service. Open the service detail page on https://mcp.dingtalk.com, click 获取 MCP Server 配置 (Get MCP Server config), and copy the URL. Each connection exposes one marketplace service.",
+            "The secret Streamable HTTP URL of one DingTalk MCP marketplace service. Open the service detail page on https://mcp.dingtalk.com, click 获取 MCP Server 配置 (Get MCP Server config), and copy the URL. Each connection exposes one marketplace service. Official guide: https://open.dingtalk.com/document/development/mcp-square-introduction.",
         },
       ],
     },
