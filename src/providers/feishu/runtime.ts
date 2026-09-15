@@ -4,7 +4,7 @@ import type { OAuthProviderContext } from "../provider-runtime.ts";
 import { compactObject, optionalObjectArray, optionalRecord, optionalString } from "../../core/cast.ts";
 import { ProviderRequestError, readProviderJsonBody, requiredInputString } from "../provider-runtime.ts";
 
-const feishuOpenBaseUrl = "https://open.feishu.cn/open-apis";
+export const feishuOpenBaseUrl = "https://open.feishu.cn/open-apis";
 
 // Feishu returns HTTP 200 with a non-zero `code` for most failures, so map the
 // well-known auth codes to their real meaning instead of a generic 502. This
@@ -13,6 +13,7 @@ const feishuOpenBaseUrl = "https://open.feishu.cn/open-apis";
 // codes verified against Feishu's generic error-code reference.
 const feishuCredentialErrorCodes = new Set([20005, 20006, 99991661, 99991668, 99991671, 99991677]);
 const feishuScopeErrorCodes = new Set([99991679]);
+const feishuInvalidInputErrorCodes = new Set([800010701, 900015206]);
 
 type FeishuActionContext = Pick<OAuthProviderContext, "accessToken" | "fetcher" | "signal">;
 interface FeishuActionHandler {
@@ -275,6 +276,9 @@ function mapFeishuErrorStatus(httpStatus: number, code: number): number {
   }
   if (httpStatus === 403 || feishuScopeErrorCodes.has(code)) {
     return 403;
+  }
+  if (feishuInvalidInputErrorCodes.has(code)) {
+    return 400;
   }
   if (httpStatus >= 400 && httpStatus < 500) {
     return httpStatus;

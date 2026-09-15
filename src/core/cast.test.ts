@@ -4,16 +4,24 @@ import {
   booleanString,
   looseArray,
   optionalIntegerOrNull,
+  optionalNumberLike,
   optionalStringArray,
   positiveInteger,
   rawStringOrNull,
   recordOrEmpty,
   requiredBoolean,
+  requiredNumber,
   requiredRawString,
   requiredStringArray,
 } from "./cast.ts";
 
 describe("cast helpers", () => {
+  it("reads finite numbers from numbers and numeric strings", () => {
+    expect(optionalNumberLike(1.5)).toBe(1.5);
+    expect(optionalNumberLike("2.5")).toBe(2.5);
+    expect(optionalNumberLike("")).toBeUndefined();
+    expect(optionalNumberLike("not-a-number")).toBeUndefined();
+  });
   it("decodes strict base64 bytes", () => {
     expect(Array.from(base64Bytes("aGVsbG8=", "payload"))).toEqual([104, 101, 108, 108, 111]);
   });
@@ -54,6 +62,12 @@ describe("cast helpers", () => {
   it("requires a boolean without coercion", () => {
     expect(requiredBoolean(false, "enabled")).toBe(false);
     expect(() => requiredBoolean(0, "enabled")).toThrow("enabled must be a boolean");
+  });
+
+  it("requires a finite number without coercion", () => {
+    expect(requiredNumber(1.5, "weight")).toBe(1.5);
+    expect(() => requiredNumber("1.5", "weight")).toThrow("weight must be a number");
+    expect(() => requiredNumber(undefined, "weight")).toThrow("weight must be a number");
   });
 
   it("reads an array containing only strings", () => {

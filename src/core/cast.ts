@@ -79,6 +79,23 @@ export function requiredString(
 }
 
 /**
+ * Return a finite number or throw a caller-provided error. Examples:
+ * `requiredNumber(1.5, "weight") => 1.5`; `requiredNumber("x", "weight")` throws.
+ */
+export function requiredNumber(
+  value: unknown,
+  fieldName: string,
+  createError: CastErrorFactory = (message) => new CastError(message),
+): number {
+  const result = optionalNumber(value);
+  if (result !== undefined) {
+    return result;
+  }
+
+  throw createError(`${fieldName} must be a number`);
+}
+
+/**
  * Decode a strict non-empty Base64 string into bytes, or throw.
  */
 export function base64Bytes(
@@ -243,6 +260,16 @@ export function optionalInteger(value: unknown): number | undefined {
  */
 export function optionalNumber(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+/**
+ * Return a finite number from a number or numeric string when present. Examples:
+ * `optionalNumberLike("1.5") => 1.5`, `optionalNumberLike("x") => undefined`.
+ */
+export function optionalNumberLike(value: unknown): number | undefined {
+  const parsed =
+    typeof value === "number" ? value : typeof value === "string" && value !== "" ? Number(value) : Number.NaN;
+  return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 /**

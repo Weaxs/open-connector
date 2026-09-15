@@ -6,7 +6,9 @@ import { PGLiteSocketServer } from "@electric-sql/pglite-socket";
 import { Pool } from "pg";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { AesGcmSecretCodec } from "../secrets/secret-codec.ts";
+import { connectionRequestStoreTests } from "./connection-request-store.cases.ts";
 import { defaultMigrationSource } from "./migration-source.ts";
+import { createNodeRuntimeDatabase, migratePostgresRuntimeDatabase } from "./node-runtime-database.ts";
 import { assertPostgresSchemaReady, migratePostgresDatabase } from "./postgres-migrations.ts";
 import { PostgresRuntimeDatabase } from "./postgres-runtime-store.ts";
 import { RuntimeTokenService } from "./runtime-token-service.ts";
@@ -50,6 +52,7 @@ describe("PostgreSQL migrations with PGlite", () => {
           { name: "0010_runtime.sql" },
           { name: "0011_runtime_token_connection_scope.sql" },
           { name: "0012_marketplace.sql" },
+          { name: "0013_connection_requests.sql" },
         ],
       });
 
@@ -108,6 +111,7 @@ describe("PostgreSQL migrations with a custom migration source", () => {
           { name: "0010_runtime.sql" },
           { name: "0011_runtime_token_connection_scope.sql" },
           { name: "0012_marketplace.sql" },
+          { name: "0013_connection_requests.sql" },
           { name: "9998_custom.sql" },
         ],
       });
@@ -123,6 +127,45 @@ describe("PostgreSQL migrations with a custom migration source", () => {
     );
     const database = await PostgresRuntimeDatabase.open(testServer.url, { migrations });
     await database.close();
+  });
+});
+
+describe("createNodeRuntimeDatabase with PostgreSQL", () => {
+  let testServer: PGliteTestServer;
+
+  beforeAll(async () => {
+    testServer = await startPGliteTestServer();
+  });
+
+  afterAll(async () => {
+    await testServer.server.stop();
+    await testServer.database.close();
+  });
+
+  it("migrates and opens the PostgreSQL runtime database through the lazily loaded driver", async () => {
+    await migratePostgresRuntimeDatabase({
+      connectionString: testServer.url,
+      connectionTimeoutMs: 5_000,
+      migrations: defaultMigrationSource,
+    });
+
+    const database = await createNodeRuntimeDatabase({
+      backend: "postgresql",
+      connectionString: testServer.url,
+      poolMax: 1,
+      migrations: defaultMigrationSource,
+    });
+    try {
+      await expect(database.connectionStore.list()).resolves.toEqual([]);
+    } finally {
+      await database.close();
+    }
+  });
+
+  it("rejects a non-PostgreSQL URL before loading the driver", async () => {
+    await expect(
+      createNodeRuntimeDatabase({ backend: "postgresql", connectionString: "mysql://localhost/db" }),
+    ).rejects.toThrow("OOMOL_CONNECT_DATABASE_URL must use the postgres: or postgresql: scheme.");
   });
 });
 
@@ -153,6 +196,8 @@ describe("PostgresRuntimeDatabase with PGlite", () => {
     await testServer.server.stop();
     await testServer.database.close();
   });
+
+  connectionRequestStoreTests(() => database);
 
   it("persists connections and OAuth data across database instances", async () => {
     const connection = await database.connectionStore.set("github", "default", githubCredential("github-token"));

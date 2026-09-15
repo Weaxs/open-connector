@@ -7,7 +7,7 @@ import type { ActionRunner, ActionRunResult } from "./server/actions/action-runn
 import type { RuntimeGrant } from "./server/storage/runtime-token-service.ts";
 import type { CallToolResult } from "@modelcontextprotocol/server";
 
-import { McpServer } from "@modelcontextprotocol/server";
+import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
 import * as z from "zod/v4";
 import { ConnectionError } from "./connection-service.ts";
 import { createActionSearchIndexProvider, searchActions as searchActionIndex } from "./core/action-search.ts";
@@ -91,7 +91,8 @@ const mcpToolConfigs = {
   },
   get_action_guide: {
     title: "Get Action Guide",
-    description: "Return one action's compact markdown guide, including local execute examples and input parameters.",
+    description:
+      "Return one action's compact markdown guide, including an execute_action example and input parameters.",
     inputSchema: {
       actionId: z.string().describe("Full action id, for example github.get_current_user."),
       connectionName: optionalConnectionNameSchema,
@@ -162,6 +163,18 @@ export function createMcpServer(options: IMcpServerOptions): McpServer {
   );
 
   return server;
+}
+
+/**
+ * Serve one Streamable HTTP MCP request statelessly: a fresh server per request, JSON responses, closed afterwards.
+ */
+export async function handleMcpRequest(request: Request, options: IMcpServerOptions): Promise<Response> {
+  const handler = createMcpHandler(() => createMcpServer(options), { legacy: "stateless", responseMode: "json" });
+  try {
+    return await handler.fetch(request);
+  } finally {
+    await handler.close();
+  }
 }
 
 async function listConnections(options: IMcpServerOptions, service: string | undefined): Promise<ToolPayload> {
@@ -283,7 +296,11 @@ async function getActionGuide(
     const capability = describeActionCapability(action, policy, connection);
     return successPayload({
       capability,
-      markdown: renderActionMarkdown(action, { connection: capability.connection, policy: capability.policy }),
+      markdown: renderActionMarkdown(action, {
+        transport: { kind: "mcp" },
+        connection: capability.connection,
+        policy: capability.policy,
+      }),
     });
   } catch (error) {
     return connectionErrorPayload(error, policy);

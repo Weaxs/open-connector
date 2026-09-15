@@ -46,6 +46,7 @@ import { TransitFileService } from "./files/transit-files.ts";
 import { AesGcmSecretCodec } from "./secrets/secret-codec.ts";
 import { decodeRunLogCursor, encodeRunLogCursor } from "./storage/runtime-store.ts";
 import { RuntimeTokenService } from "./storage/runtime-token-service.ts";
+import { SqliteRuntimeDatabase } from "./storage/sqlite-runtime-store.ts";
 
 const apiKeyProvider: ProviderDefinition = {
   service: "example",
@@ -55,6 +56,11 @@ const apiKeyProvider: ProviderDefinition = {
   auth: [{ type: "api_key" }],
   actions: [],
 };
+
+const requestDatabases: SqliteRuntimeDatabase[] = [];
+afterEach(() => {
+  for (const database of requestDatabases.splice(0)) database.close();
+});
 
 const oauthProvider: ProviderDefinition = {
   service: "oauth_example",
@@ -2432,6 +2438,20 @@ describe("ConnectServer", () => {
     expect(markdown).toContain("`messages:read`");
   });
 
+  it("renders agent.md request examples against the configured public origin", async () => {
+    const app = createTestServer([{ ...apiKeyProvider, actions: [echoAction] }], {
+      publicOrigin: "https://connector.example.com",
+    }).createApp();
+
+    const response = await app.request("/api/actions/example.echo/agent.md");
+
+    expect(response.status).toBe(200);
+    const markdown = await response.text();
+    expect(markdown).toContain("curl -s https://connector.example.com/v1/actions/example.echo \\");
+    expect(markdown).toContain('fetch("https://connector.example.com/v1/actions/example.echo"');
+    expect(markdown).not.toContain("localhost");
+  });
+
   it("returns connection errors for action agent.md instead of 500", async () => {
     const app = createTestServer([
       {
@@ -3652,6 +3672,7 @@ interface TestAuthOptions {
 
 interface CreateTestServerOptions {
   auth?: TestAuthOptions;
+  publicOrigin?: string;
   actionPolicy?: ActionPolicyService;
   actionSearch?: ActionSearchIndexProvider;
   providerLoader?: IProviderLoader;
@@ -3668,6 +3689,8 @@ interface CreateTestServerOptions {
 }
 
 function createTestServer(providers: ProviderDefinition[], options: CreateTestServerOptions = {}): ConnectServer {
+  const requestDatabase = new SqliteRuntimeDatabase(":memory:");
+  requestDatabases.push(requestDatabase);
   const catalog = createCatalogStore(providers, {
     executableActionIds: ["example.echo"],
   });
@@ -3711,6 +3734,7 @@ function createTestServer(providers: ProviderDefinition[], options: CreateTestSe
 
   return new ConnectServer({
     catalog,
+    publicOrigin: options.publicOrigin ?? "http://localhost:3000",
     providerLoader,
     connections,
     oauthClientConfigs: clientConfigs,
@@ -3719,6 +3743,7 @@ function createTestServer(providers: ProviderDefinition[], options: CreateTestSe
       connections,
       providerLoader,
       states: new MemoryOAuthStateStore(),
+      requests: requestDatabase.connectionRequestStore,
       secretCodec: options.secretCodec,
       isCustomClientConfigAllowed,
     }),
