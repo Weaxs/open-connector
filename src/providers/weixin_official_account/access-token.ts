@@ -41,6 +41,7 @@ interface WechatAccessTokenCacheEntry {
 }
 
 const accessTokenCache = new Map<string, WechatAccessTokenCacheEntry>();
+const accessTokenInFlight = new Map<string, Promise<string>>();
 
 export function readWechatOfficialAccountCredential(values: Record<string, string>): WechatOfficialAccountCredential {
   return {
@@ -52,10 +53,26 @@ export function readWechatOfficialAccountCredential(values: Record<string, strin
 /**
  * Return a stable access token for the credential, served from the module-level
  * cache until 120 seconds before its WeChat expiry and minted through the
- * stable_token endpoint otherwise.
+ * stable_token endpoint otherwise. Concurrent callers share one in-flight mint
+ * per credential: forced refreshes are limited to 20 per day by WeChat and each
+ * one invalidates the previous token, so duplicate mints must not happen.
  */
 export async function getWechatAccessToken(input: WechatAccessTokenRequest): Promise<string> {
   const cacheKey = `${input.credential.appId}\0${input.credential.appSecret}`;
+  const pending = accessTokenInFlight.get(cacheKey);
+  if (pending) {
+    return pending;
+  }
+  const request = mintAndCacheAccessToken(input, cacheKey);
+  accessTokenInFlight.set(cacheKey, request);
+  try {
+    return await request;
+  } finally {
+    accessTokenInFlight.delete(cacheKey);
+  }
+}
+
+async function mintAndCacheAccessToken(input: WechatAccessTokenRequest, cacheKey: string): Promise<string> {
   if (input.forceRefresh) {
     accessTokenCache.delete(cacheKey);
   } else {
