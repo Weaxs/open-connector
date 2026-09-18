@@ -13,7 +13,7 @@ const wechatStableTokenUrl = "https://api.weixin.qq.com/cgi-bin/stable_token";
 const defaultAccessTokenTtlSeconds = 7200;
 const accessTokenRefreshSkewMs = 120_000;
 const ipWhitelistHint =
-  "Add this runtime's public egress IP to the official account IP whitelist (设置与开发 → 基本配置 → IP 白名单) at https://mp.weixin.qq.com and try again.";
+  "Add this runtime's public egress IP to the official account's API IP whitelist in the 微信开发者平台 console (公众号 → 基础信息 → 开发密钥 → API IP白名单) and try again.";
 
 export interface WechatOfficialAccountCredential {
   appId: string;
