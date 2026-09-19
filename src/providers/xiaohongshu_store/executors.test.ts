@@ -23,6 +23,7 @@ describe("createXiaohongshuStoreSign", () => {
     };
     const sign = createXiaohongshuStoreSign(base);
     expect(createXiaohongshuStoreSign({ ...base, method: "order.getOrderDetail" })).not.toBe(sign);
+    expect(createXiaohongshuStoreSign({ ...base, appId: "other-app-id" })).not.toBe(sign);
     expect(createXiaohongshuStoreSign({ ...base, timestamp: "1700000001" })).not.toBe(sign);
     expect(createXiaohongshuStoreSign({ ...base, appSecret: "other-secret" })).not.toBe(sign);
   });

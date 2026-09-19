@@ -198,13 +198,15 @@ async function requestXiaohongshuStore(input: XiaohongshuStoreRequestInput): Pro
       await readProviderJsonBody(response, {
         emptyBody: undefined,
         invalidJsonMessage: "Xiaohongshu returned invalid JSON",
+        // Keep the HTTP status mapping for non-OK responses with an unreadable body.
+        invalidJsonFallback: () => (response.ok ? undefined : {}),
       }),
     );
-    if (!payload) {
+    if (!payload && response.ok) {
       throw providerResponseError("Xiaohongshu returned an invalid response");
     }
-    if (!response.ok || !isXiaohongshuStoreSuccess(payload)) {
-      throw createXiaohongshuStoreError(response.status, payload);
+    if (!response.ok || !payload || !isXiaohongshuStoreSuccess(payload)) {
+      throw createXiaohongshuStoreError(response.status, payload ?? {});
     }
     return unwrapXiaohongshuStoreData(payload.data);
   });

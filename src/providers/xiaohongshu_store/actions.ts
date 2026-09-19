@@ -89,16 +89,20 @@ export const xiaohongshuStoreActions: ActionDefinition[] = [
     operationType: "read",
     description:
       "Get receiver addresses for Xiaohongshu orders. Only available while an order is pending shipment; call it right before printing shipping labels.",
-    inputSchema: s.object("The receiver queries used to retrieve Xiaohongshu order receiver information.", {
-      receiverQueries: s.array(
-        "Up to 20 receiver queries. Each needs the order ID and the openAddressId returned by get_order.",
-        s.object("A single receiver query.", {
-          orderId: orderIdSchema,
-          openAddressId: s.nonWhitespaceString("The address credential returned by get_order as openAddressId."),
-        }),
-      ),
-      isReturn: s.boolean("Whether the query targets exchange orders instead of regular orders."),
-    }),
+    inputSchema: s.object(
+      "The receiver queries used to retrieve Xiaohongshu order receiver information.",
+      {
+        receiverQueries: s.array(
+          "Up to 20 receiver queries. Each needs the order ID and the openAddressId returned by get_order.",
+          s.object("A single receiver query.", {
+            orderId: orderIdSchema,
+            openAddressId: s.nonWhitespaceString("The address credential returned by get_order as openAddressId."),
+          }),
+        ),
+        isReturn: s.boolean("Whether the query targets exchange orders instead of regular orders. Defaults to false."),
+      },
+      { optional: ["isReturn"] },
+    ),
     outputSchema: s.object("The Xiaohongshu order receiver result.", {
       receivers: s.array(
         "The receiver records, one per matched order.",
