@@ -25,6 +25,29 @@ const orderIdSchema = s.nonWhitespaceString("The Xiaohongshu order ID.");
 const expressCompanyCodeSchema = s.nonWhitespaceString(
   "The Xiaohongshu express company code, as returned by list_express_companies.",
 );
+const itemImageSchema = s.looseObject("One image.", {
+  link: s.nonWhitespaceString("The image URL returned by upload_material."),
+});
+const itemDeliveryTimeSchema = s.looseObject("The SKU delivery time.", {
+  type: s.integer("The delivery time type: 3 for same-day, 4 for relative hours, or 5 for an absolute time.", {
+    minimum: 3,
+    maximum: 5,
+  }),
+  time: s.nonWhitespaceString("The delivery time value for the chosen type."),
+});
+const createItemSkuSchema = s.looseObject("One SKU to create.", {
+  price: s.nonNegativeInteger("The SKU price in fen."),
+  stock: s.nonNegativeInteger("The SKU stock."),
+  logisticsPlanId: s.nonWhitespaceString("The logistics plan ID, from list_logistics_plans."),
+  deliveryTime: itemDeliveryTimeSchema,
+});
+const updateItemSkuSchema = s.looseObject("One SKU to update.", {
+  skuId: s.nonWhitespaceString("The SKU ID, from list_item_skus or get_item."),
+  price: s.nonNegativeInteger("The SKU price in fen."),
+  stock: s.nonNegativeInteger("The SKU stock."),
+  logisticsPlanId: s.nonWhitespaceString("The logistics plan ID, from list_logistics_plans."),
+  deliveryTime: itemDeliveryTimeSchema,
+});
 
 export const xiaohongshuStoreActions: ActionDefinition[] = [
   defineProviderAction(service, {
@@ -651,12 +674,12 @@ export const xiaohongshuStoreActions: ActionDefinition[] = [
         shippingTemplateId: s.nonWhitespaceString("The carriage template ID, from list_carriage_templates."),
         images: s.array(
           "The main images. Upload files with upload_material first and pass each returned url as link.",
-          s.looseObject("One image: { link }."),
+          itemImageSchema,
           { minItems: 1 },
         ),
         createSkuList: s.array(
           "The SKUs to create. Each needs price (in fen), stock, logisticsPlanId (from list_logistics_plans), and deliveryTime ({ type, time }).",
-          s.looseObject("One SKU to create."),
+          createItemSkuSchema,
           { minItems: 1 },
         ),
         brandId: s.nonWhitespaceString("The brand ID, from search_brands."),
@@ -713,17 +736,17 @@ export const xiaohongshuStoreActions: ActionDefinition[] = [
         shippingTemplateId: s.nonWhitespaceString("The carriage template ID, from list_carriage_templates."),
         images: s.array(
           "The main images. Upload files with upload_material first and pass each returned url as link.",
-          s.looseObject("One image: { link }."),
+          itemImageSchema,
           { minItems: 1 },
         ),
         updateSkuList: s.array(
           "The existing SKUs to update. Each needs skuId, price (in fen), stock, logisticsPlanId (from list_logistics_plans), and deliveryTime ({ type, time }).",
-          s.looseObject("One SKU to update."),
+          updateItemSkuSchema,
           { minItems: 1 },
         ),
         createSkuList: s.array(
           "The new SKUs to add to the item, in the same shape as updateSkuList without skuId.",
-          s.looseObject("One SKU to create."),
+          createItemSkuSchema,
         ),
         deleteSkuIdList: s.array("The SKU IDs to remove from the item.", s.nonWhitespaceString("A SKU ID.")),
         brandId: s.nonWhitespaceString("The brand ID, from search_brands."),
