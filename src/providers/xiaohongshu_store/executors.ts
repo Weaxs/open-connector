@@ -226,8 +226,14 @@ async function requestXiaohongshuStore(input: XiaohongshuStoreRequestInput): Pro
 
 function isXiaohongshuStoreSuccess(payload: Record<string, unknown>): boolean {
   if (payload.success === false) return false;
-  if (payload.success === true) return true;
-  return (optionalInteger(payload.error_code) ?? optionalInteger(payload.errorCode)) === 0;
+  const errorCode = optionalInteger(payload.error_code) ?? optionalInteger(payload.errorCode);
+  // The item publish APIs report some business rejections as { success: true, error_code: 50209,
+  // error_msg: "..." } with no data; without this check the message would be lost behind a generic
+  // "invalid item" response error.
+  if (payload.success === true) {
+    return payload.data != null || errorCode === undefined || errorCode === 0;
+  }
+  return errorCode === 0;
 }
 
 // The newer after-sale APIs wrap their payload in a second { code, msg, success, data }
@@ -695,6 +701,7 @@ function buildItemParameters(input: Record<string, unknown>, update: boolean): R
     name: requiredInputString(input.name, "name"),
     categoryId: requiredInputString(input.categoryId, "categoryId"),
     shippingTemplateId: requiredInputString(input.shippingTemplateId, "shippingTemplateId"),
+    shippingGrossWeight: optionalInteger(input.shippingGrossWeight),
     images,
     brandId: optionalString(input.brandId),
     attributes: optionalNonEmptyArray(input.attributes),

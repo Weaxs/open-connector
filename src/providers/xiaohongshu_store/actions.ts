@@ -35,19 +35,28 @@ const itemDeliveryTimeSchema = s.looseObject("The SKU delivery time.", {
   }),
   time: s.nonWhitespaceString("The delivery time value for the chosen type."),
 });
-const createItemSkuSchema = s.looseObject("One SKU to create.", {
-  price: s.nonNegativeInteger("The SKU price in fen."),
-  stock: s.nonNegativeInteger("The SKU stock."),
-  logisticsPlanId: s.nonWhitespaceString("The logistics plan ID, from list_logistics_plans."),
-  deliveryTime: itemDeliveryTimeSchema,
-});
-const updateItemSkuSchema = s.looseObject("One SKU to update.", {
-  skuId: s.nonWhitespaceString("The SKU ID, from list_item_skus or get_item."),
-  price: s.nonNegativeInteger("The SKU price in fen."),
-  stock: s.nonNegativeInteger("The SKU stock."),
-  logisticsPlanId: s.nonWhitespaceString("The logistics plan ID, from list_logistics_plans."),
-  deliveryTime: itemDeliveryTimeSchema,
-});
+const createItemSkuSchema = s.looseObject(
+  "One SKU to create. Other upstream SKU fields such as originalPrice, variants, barcode, erpCode, and specImage pass through unchanged.",
+  {
+    price: s.nonNegativeInteger("The SKU price in fen."),
+    stock: s.nonNegativeInteger("The SKU stock."),
+    logisticsPlanId: s.nonWhitespaceString("The logistics plan ID, from list_logistics_plans."),
+    deliveryTime: itemDeliveryTimeSchema,
+  },
+);
+const updateItemSkuSchema = s.looseObject(
+  "One SKU to update. Other upstream SKU fields such as originalPrice, variants, barcode, erpCode, and specImage pass through unchanged.",
+  {
+    skuId: s.nonWhitespaceString("The SKU ID, from list_item_skus or get_item."),
+    price: s.nonNegativeInteger("The SKU price in fen."),
+    stock: s.nonNegativeInteger("The SKU stock."),
+    logisticsPlanId: s.nonWhitespaceString("The logistics plan ID, from list_logistics_plans."),
+    deliveryTime: itemDeliveryTimeSchema,
+  },
+);
+const shippingGrossWeightSchema = s.nonNegativeInteger(
+  "The item shipping weight in grams. Required to be positive when the carriage template charges by weight.",
+);
 
 export const xiaohongshuStoreActions: ActionDefinition[] = [
   defineProviderAction(service, {
@@ -672,6 +681,7 @@ export const xiaohongshuStoreActions: ActionDefinition[] = [
         name: s.nonWhitespaceString("The item title."),
         categoryId: s.nonWhitespaceString("The leaf category ID, from list_categories."),
         shippingTemplateId: s.nonWhitespaceString("The carriage template ID, from list_carriage_templates."),
+        shippingGrossWeight: shippingGrossWeightSchema,
         images: s.array(
           "The main images. Upload files with upload_material first and pass each returned url as link.",
           itemImageSchema,
@@ -707,6 +717,7 @@ export const xiaohongshuStoreActions: ActionDefinition[] = [
       },
       {
         optional: [
+          "shippingGrossWeight",
           "brandId",
           "attributes",
           "variantIds",
@@ -734,6 +745,7 @@ export const xiaohongshuStoreActions: ActionDefinition[] = [
         name: s.nonWhitespaceString("The item title."),
         categoryId: s.nonWhitespaceString("The leaf category ID, from list_categories."),
         shippingTemplateId: s.nonWhitespaceString("The carriage template ID, from list_carriage_templates."),
+        shippingGrossWeight: shippingGrossWeightSchema,
         images: s.array(
           "The main images. Upload files with upload_material first and pass each returned url as link.",
           itemImageSchema,
@@ -774,6 +786,7 @@ export const xiaohongshuStoreActions: ActionDefinition[] = [
       },
       {
         optional: [
+          "shippingGrossWeight",
           "createSkuList",
           "deleteSkuIdList",
           "brandId",
@@ -874,7 +887,10 @@ export const xiaohongshuStoreActions: ActionDefinition[] = [
       "The pagination used to list carriage templates.",
       {
         pageIndex: s.integer("The one-based page number. Defaults to 1.", { minimum: 1 }),
-        pageSize: pageSizeSchema,
+        pageSize: s.integer("The number of carriage templates per page. Defaults to 20 and cannot exceed 100.", {
+          minimum: 1,
+          maximum: 100,
+        }),
       },
       { optional: ["pageIndex", "pageSize"] },
     ),
