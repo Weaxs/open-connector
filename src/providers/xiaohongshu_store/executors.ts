@@ -244,7 +244,9 @@ function createXiaohongshuStoreError(status: number, payload: Record<string, unk
     `Xiaohongshu request failed with status ${status}`;
   const errorCode = optionalInteger(payload.error_code) ?? optionalInteger(payload.errorCode);
   const detail = errorCode === undefined ? message : `[${errorCode}] ${message}`;
-  if (status === 429) {
+  // The gateway throttles on HTTP 200: { error_code: -9013, error_msg: "触发Method维度的限流" }.
+  // Other throttle dimensions have no published code, so the upstream wording is matched too.
+  if (status === 429 || errorCode === -9013 || message.includes("限流")) {
     return new ProviderRequestError(429, detail);
   }
   if (status === 401 || status === 403 || errorCode === 401) {

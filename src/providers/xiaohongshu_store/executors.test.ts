@@ -82,4 +82,15 @@ describe("credentialValidators.customCredential", () => {
       validate({ values: { appId: "x", appSecret: "y", accessToken: "z" } }, { fetcher }),
     ).rejects.toMatchObject({ status: 400 });
   });
+
+  // The gateway reports throttling as HTTP 200 with error_code -9013 rather than an HTTP 429.
+  it("maps the gateway throttle response to a 429", async () => {
+    const fetcher = (async () =>
+      Response.json({ error_code: -9013, error_msg: "触发Method维度的限流", success: false })) as typeof fetch;
+    const validate = credentialValidators.customCredential;
+    if (!validate) throw new Error("missing customCredential validator");
+    await expect(
+      validate({ values: { appId: "x", appSecret: "y", accessToken: "z" } }, { fetcher }),
+    ).rejects.toMatchObject({ status: 429 });
+  });
 });
