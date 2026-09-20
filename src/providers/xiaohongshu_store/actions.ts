@@ -14,6 +14,8 @@ const rawItemSchema = s.looseObject("A Xiaohongshu item record. Available fields
 const rawStockSchema = s.looseObject("A Xiaohongshu SKU stock result, including per-warehouse breakdowns.");
 
 const timestampMsSchema = s.nonNegativeInteger("A Unix timestamp in milliseconds.");
+// order.getOrderList is the one API whose query window is in seconds; its response times are still milliseconds.
+const orderListTimestampSchema = s.nonNegativeInteger("A Unix timestamp in seconds.");
 const pageNoSchema = s.integer("The one-based page number. Defaults to 1.", { minimum: 1 });
 const pageSizeSchema = s.integer("The number of records per page. Defaults to 50 and cannot exceed 100.", {
   minimum: 1,
@@ -29,7 +31,7 @@ export const xiaohongshuStoreActions: ActionDefinition[] = [
     name: "refresh_token",
     operationType: "write",
     description:
-      "Refresh the access token using the refresh token stored in the connection credential. Returns the new token set, which must be saved back to the connection; Xiaohongshu access tokens expire after 7 days.",
+      "Refresh the access token using the refresh token stored in the connection credential. Xiaohongshu only issues new tokens when the access token has under 30 minutes left or has expired; otherwise it returns the current ones unchanged. A changed token set must be saved back to the connection, and the old access token stays valid for only 5 more minutes. Access tokens expire after 7 days.",
     inputSchema: s.object(
       "No input is required to refresh the token; the refresh token comes from the connection credential.",
       {},
@@ -44,7 +46,7 @@ export const xiaohongshuStoreActions: ActionDefinition[] = [
     name: "list_orders",
     operationType: "read",
     description:
-      "List Xiaohongshu orders by creation or update time. Creation-time windows are limited to 24 hours and update-time windows to 30 minutes.",
+      "List Xiaohongshu orders by creation or update time. startTime and endTime are Unix timestamps in seconds, while the returned order times are in milliseconds. Creation-time windows are limited to 24 hours and update-time windows to 30 minutes.",
     inputSchema: s.object(
       "The time range and filters used to list Xiaohongshu orders.",
       {
@@ -52,8 +54,8 @@ export const xiaohongshuStoreActions: ActionDefinition[] = [
           minimum: 1,
           maximum: 2,
         }),
-        startTime: timestampMsSchema,
-        endTime: timestampMsSchema,
+        startTime: orderListTimestampSchema,
+        endTime: orderListTimestampSchema,
         orderType: s.integer(
           "The order type: 0 for all, 1 for in-stock, 2 for deposit presale, 4 for full-payment presale, or 5 for exchange reshipment.",
           { minimum: 0, maximum: 5 },
@@ -486,8 +488,8 @@ export const xiaohongshuStoreActions: ActionDefinition[] = [
       "The item identifier used to retrieve a Xiaohongshu item.",
       {
         itemId: s.nonWhitespaceString("The Xiaohongshu item ID."),
-        pageNo: pageNoSchema,
-        pageSize: pageSizeSchema,
+        pageNo: s.integer("The one-based page number of the SKU list.", { minimum: 1 }),
+        pageSize: s.integer("The number of SKUs per page.", { minimum: 1, maximum: 100 }),
       },
       { optional: ["pageNo", "pageSize"] },
     ),

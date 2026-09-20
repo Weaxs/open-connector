@@ -1,5 +1,7 @@
+import type { ExecutionContext } from "../../core/types.ts";
+
 import { describe, expect, it } from "vitest";
-import { createXiaohongshuStoreSign, credentialValidators } from "./executors.ts";
+import { createXiaohongshuStoreSign, credentialValidators, executors } from "./executors.ts";
 
 describe("createXiaohongshuStoreSign", () => {
   it("reproduces the documented createItem signature example", () => {
@@ -26,6 +28,44 @@ describe("createXiaohongshuStoreSign", () => {
     expect(createXiaohongshuStoreSign({ ...base, appId: "other-app-id" })).not.toBe(sign);
     expect(createXiaohongshuStoreSign({ ...base, timestamp: "1700000001" })).not.toBe(sign);
     expect(createXiaohongshuStoreSign({ ...base, appSecret: "other-secret" })).not.toBe(sign);
+  });
+});
+
+describe("list_orders time window", () => {
+  // order.getOrderList takes startTime/endTime in seconds, unlike the millisecond after-sale list.
+  const context: ExecutionContext = {
+    getCredential: async () => ({
+      authType: "custom_credential",
+      values: { appId: "x", appSecret: "y", accessToken: "z" },
+      profile: { accountId: "xiaohongshu_store:x", displayName: "Xiaohongshu Store", grantedScopes: [] },
+      metadata: {},
+    }),
+  };
+  const listOrders = executors["xiaohongshu_store.list_orders"];
+  const startTime = 1_790_000_000;
+
+  it("rejects millisecond timestamps before calling Xiaohongshu", async () => {
+    const result = await listOrders(
+      { timeType: 1, startTime: startTime * 1000, endTime: startTime * 1000 + 1 },
+      context,
+    );
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "invalid_input", message: "startTime must be a Unix timestamp in seconds" },
+    });
+  });
+
+  it("enforces the 24 hour and 30 minute windows in seconds", async () => {
+    const byCreation = await listOrders({ timeType: 1, startTime, endTime: startTime + 86_401 }, context);
+    expect(byCreation).toMatchObject({
+      ok: false,
+      error: { message: "The creation-time window cannot exceed 24 hours" },
+    });
+    const byUpdate = await listOrders({ timeType: 2, startTime, endTime: startTime + 1_801 }, context);
+    expect(byUpdate).toMatchObject({
+      ok: false,
+      error: { message: "The update-time window cannot exceed 30 minutes" },
+    });
   });
 });
 

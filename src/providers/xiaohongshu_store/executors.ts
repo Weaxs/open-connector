@@ -30,8 +30,11 @@ import {
 const xiaohongshuStoreApiUrl = "https://ark.xiaohongshu.com/ark/open_api/v3/common_controller";
 const xiaohongshuStoreApiVersion = "2.0";
 
-const createdTimeWindowMs = 24 * 60 * 60 * 1_000;
-const updatedTimeWindowMs = 30 * 60 * 1_000;
+const createdTimeWindowSeconds = 24 * 60 * 60;
+const updatedTimeWindowSeconds = 30 * 60;
+// order.getOrderList takes its window in seconds; afterSale.listAfterSaleInfos takes milliseconds.
+const orderListTimeUnit = 1;
+const afterSaleListTimeUnit = 1_000;
 
 interface XiaohongshuStoreCredential {
   appId: string;
@@ -170,6 +173,7 @@ function buildSignedXiaohongshuStoreBody(
     throw providerInputError("A refresh token must be configured on the connection to use refresh_token");
   }
   return {
+    ...parameters,
     appId: credential.appId,
     timestamp,
     version: xiaohongshuStoreApiVersion,
@@ -178,7 +182,6 @@ function buildSignedXiaohongshuStoreBody(
     // Refresh exists precisely for an expired access token, so it is not sent there.
     accessToken: isRefresh ? undefined : credential.accessToken,
     refreshToken: isRefresh ? credential.refreshToken : undefined,
-    ...parameters,
   };
 }
 
@@ -264,9 +267,9 @@ function buildActionParameters(
       if (timeType !== 1 && timeType !== 2) {
         throw providerInputError("timeType must be 1 (creation time) or 2 (update time)");
       }
-      const startTime = requireTimestampMs(input.startTime, "startTime");
-      const endTime = requireTimestampMs(input.endTime, "endTime");
-      validateTimeWindow(timeType, startTime, endTime);
+      const startTime = requireOrderListTimestamp(input.startTime, "startTime");
+      const endTime = requireOrderListTimestamp(input.endTime, "endTime");
+      validateTimeWindow(timeType, startTime, endTime, orderListTimeUnit);
       return compactObject({
         timeType,
         startTime,
@@ -337,7 +340,7 @@ function buildActionParameters(
             "list_after_sales requires an orderId, or timeType together with startTime and endTime",
           );
         }
-        validateTimeWindow(timeType, startTime, endTime);
+        validateTimeWindow(timeType, startTime, endTime, afterSaleListTimeUnit);
       }
       const pageNo = optionalInteger(input.pageNo) ?? 1;
       const pageSize = optionalInteger(input.pageSize) ?? 50;
@@ -504,6 +507,9 @@ function normalizeActionOutput(
     case "resend_payment_record": {
       // The documented payload is a BasicResult object; some gateways return a plain message string.
       const message = record ? pickOptionalString(record, "msg") : undefined;
+      if (record?.success === false) {
+        throw providerResponseError(message ?? "Xiaohongshu rejected the resend request");
+      }
       return { message: message ?? (typeof data === "string" ? data : "Xiaohongshu accepted the resend request") };
     }
     case "list_after_sales":
@@ -572,23 +578,24 @@ function normalizeActionOutput(
   }
 }
 
-function requireTimestampMs(value: unknown, fieldName: string): number {
+function requireOrderListTimestamp(value: unknown, fieldName: string): number {
   const timestamp = integer(value, fieldName, providerInputError);
-  if (timestamp < 0) {
-    throw providerInputError(`${fieldName} must be a Unix timestamp in milliseconds`);
+  // Anything this large is a millisecond timestamp, which the order list would silently misread.
+  if (timestamp < 0 || timestamp >= 100_000_000_000) {
+    throw providerInputError(`${fieldName} must be a Unix timestamp in seconds`);
   }
   return timestamp;
 }
 
-function validateTimeWindow(timeType: number, startTime: number, endTime: number): void {
+function validateTimeWindow(timeType: number, startTime: number, endTime: number, unitsPerSecond: number): void {
   if (endTime <= startTime) {
     throw providerInputError("endTime must be later than startTime");
   }
-  const windowMs = endTime - startTime;
-  if (timeType === 1 && windowMs > createdTimeWindowMs) {
+  const windowSeconds = (endTime - startTime) / unitsPerSecond;
+  if (timeType === 1 && windowSeconds > createdTimeWindowSeconds) {
     throw providerInputError("The creation-time window cannot exceed 24 hours");
   }
-  if (timeType === 2 && windowMs > updatedTimeWindowMs) {
+  if (timeType === 2 && windowSeconds > updatedTimeWindowSeconds) {
     throw providerInputError("The update-time window cannot exceed 30 minutes");
   }
 }
