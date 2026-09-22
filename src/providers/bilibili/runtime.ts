@@ -29,7 +29,7 @@ const bilibiliSignatureVersion = "2.0";
 
 // Business codes from the 接口签名实现标准和状态码 document. -101 is the
 // main-site "not logged in" code that arcopen also returns for a dead token.
-const bilibiliCredentialErrorCodes = new Set([-101, 127000, 127001, 127004]);
+const bilibiliCredentialErrorCodes = new Set([-101, 127000, 127001, 127002, 127004]);
 const bilibiliPermissionErrorCodes = new Set([123001, 127005, 127006, 127007, 127011, 127304, 127305]);
 const bilibiliRateLimitErrorCodes = new Set([127009, 127306]);
 const bilibiliInvalidInputErrorCodes = new Set([

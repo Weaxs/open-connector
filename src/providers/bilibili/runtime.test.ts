@@ -80,6 +80,7 @@ describe("readBilibiliEnvelopeData", () => {
   it("maps documented credential, permission, rate-limit and input codes to their statuses", () => {
     const cases: [number, number][] = [
       [127001, 401],
+      [127002, 401],
       [127011, 403],
       [123001, 403],
       [127306, 429],
