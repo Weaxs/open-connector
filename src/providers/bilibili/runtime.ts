@@ -8,6 +8,7 @@ import {
   ProviderRequestError,
   createProviderTimeout,
   isAbortLikeError,
+  providerInputError,
   providerResponseError,
   providerUserAgent,
   readProviderErrorTextBody,
@@ -37,6 +38,16 @@ export interface BilibiliActionContext {
 
 /** Provider-native handler shape for Bilibili actions. */
 export type BilibiliActionHandler = ProviderRuntimeHandler<BilibiliActionContext>;
+
+/**
+ * Reject an edit call that carries no editable field: it would resubmit
+ * unchanged content and still cost a provider-side review round.
+ */
+export function assertAnyInputField(input: Record<string, unknown>, fields: readonly string[]): void {
+  if (!fields.some((field) => input[field] !== undefined)) {
+    throw providerInputError(`Provide at least one field to edit: ${fields.join(", ")}.`);
+  }
+}
 
 /** Read the signing material stored on the connection metadata by the OAuth client config. */
 export function readBilibiliSigningMaterial(

@@ -1,5 +1,5 @@
 import type { ProviderActionHandlerSubset } from "../provider-runtime.ts";
-import type { BilibiliActionContext, BilibiliActionHandler } from "./runtime.ts";
+import type { BilibiliActionHandler } from "./runtime.ts";
 
 import {
   compactObject,
@@ -19,7 +19,7 @@ import {
   requiredInputString,
   requiredResponseRecord,
 } from "../provider-runtime.ts";
-import { bilibiliApiRequest, bilibiliFormRequest, readBilibiliReplyIncrement } from "./runtime.ts";
+import { assertAnyInputField, bilibiliApiRequest, bilibiliFormRequest, readBilibiliReplyIncrement } from "./runtime.ts";
 import { uploadBilibiliArticleImage } from "./upload.ts";
 
 export const bilibiliArticleActionHandlers: ProviderActionHandlerSubset<"bilibili", BilibiliActionHandler> = {
@@ -50,6 +50,20 @@ export const bilibiliArticleActionHandlers: ProviderActionHandlerSubset<"bilibil
 
   async edit_article(input, context) {
     const articleId = requiredInputNumber(input.articleId, "articleId");
+    assertAnyInputField(input, [
+      "title",
+      "categoryId",
+      "templateId",
+      "summary",
+      "content",
+      "bannerUrl",
+      "original",
+      "imageUrls",
+      "tags",
+      "anthologyId",
+      "upClosedReply",
+      "topVideoBvid",
+    ]);
     // Fail fast on an explicit mutually exclusive pair before reading anything.
     assertArticleCoverChoice(input);
     // Bilibili replaces every field on edit, so unchanged fields are refilled
@@ -177,6 +191,7 @@ export const bilibiliArticleActionHandlers: ProviderActionHandlerSubset<"bilibil
 
   async edit_anthology(input, context) {
     const anthologyId = requiredInputNumber(input.anthologyId, "anthologyId");
+    assertAnyInputField(input, ["name", "summary", "imageUrl"]);
     // Same full-field replacement semantics as article editing: unchanged
     // fields are refilled from the current anthology.
     const current = requiredResponseRecord(

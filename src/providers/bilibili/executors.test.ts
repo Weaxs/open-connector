@@ -213,8 +213,8 @@ describe("bilibili.upload_video", () => {
       expect(url.searchParams.get("part_number")).toBe(String(index + 1));
       expect(headersOf(call)["content-type"]).toBe("application/octet-stream");
     });
-    expect((partCalls[0]!.init?.body as Blob).size).toBe(10 * 1024 * 1024);
-    expect((partCalls[10]!.init?.body as Blob).size).toBe(1);
+    expect((partCalls[0]!.init!.body as Blob).size).toBe(10 * 1024 * 1024);
+    expect((partCalls[10]!.init!.body as Blob).size).toBe(1);
 
     expect(paths[paths.length - 2]).toBe("/arcopen/fn/archive/video/complete");
     expect(paths[paths.length - 1]).toBe("/arcopen/fn/archive/add-by-utoken");
@@ -305,6 +305,22 @@ describe("bilibili.delete_articles", () => {
     expect(result).toEqual({ ok: true, output: { articleIds: [5678, 123], deleted: true } });
     const form = calls[0]!.init?.body as FormData;
     expect(form.get("ids")).toBe("5678,123");
+  });
+});
+
+describe("bilibili edit actions", () => {
+  it("reject identifier-only calls before any request", async () => {
+    const calls = stubFetchRoutes({});
+
+    const archive = await executors["bilibili.edit_archive"]!({ resourceId: "BV1abc" }, executionContext());
+    const article = await executors["bilibili.edit_article"]!({ articleId: 5678 }, executionContext());
+    const anthology = await executors["bilibili.edit_anthology"]!({ anthologyId: 462 }, executionContext());
+
+    for (const result of [archive, article, anthology]) {
+      expect(result.ok).toBe(false);
+      expect(result.error?.code).toBe("invalid_input");
+    }
+    expect(calls).toHaveLength(0);
   });
 });
 

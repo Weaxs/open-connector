@@ -25,6 +25,7 @@ import {
 } from "../provider-runtime.ts";
 import { bilibiliArticleActionHandlers } from "./articles.ts";
 import {
+  assertAnyInputField,
   bilibiliApiRequest,
   bilibiliOAuthRefreshTokenUrl,
   createBilibiliContext,
@@ -165,6 +166,7 @@ const bilibiliAccountActionHandlers: ProviderActionHandlerSubset<"bilibili", Bil
 
   async edit_archive(input, context) {
     const resourceId = requiredInputString(input.resourceId, "resourceId");
+    assertAnyInputField(input, ["title", "tid", "coverUrl", "desc", "noReprint"]);
     // Bilibili replaces every descriptive field on edit, so unchanged fields
     // are refilled from the current archive before submitting.
     const current = requiredResponseRecord(
