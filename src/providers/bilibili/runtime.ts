@@ -27,6 +27,17 @@ const bilibiliApiBasePath = "/arcopen/fn";
 const bilibiliSignatureMethod = "HMAC-SHA256";
 const bilibiliSignatureVersion = "2.0";
 
+// Business codes from the 接口签名实现标准和状态码 document. -101 is the
+// main-site "not logged in" code that arcopen also returns for a dead token.
+const bilibiliCredentialErrorCodes = new Set([-101, 127000, 127001, 127004]);
+const bilibiliPermissionErrorCodes = new Set([123001, 127005, 127006, 127007, 127011, 127304, 127305]);
+const bilibiliRateLimitErrorCodes = new Set([127009, 127306]);
+const bilibiliInvalidInputErrorCodes = new Set([
+  4000, 123003, 123004, 123005, 123008, 123009, 123010, 123012, 123013, 123014, 123015, 123016, 123017, 123018, 123024,
+  123029, 123030, 123038, 123040, 123041, 129000, 129001, 129002, 129003, 129004, 129005, 129006, 129009, 129010,
+  129012, 129015, 129018,
+]);
+
 export interface BilibiliActionContext {
   accessToken: string;
   clientId: string;
@@ -228,10 +239,28 @@ export function readBilibiliEnvelopeData(payload: unknown, label: string): unkno
     return envelope.data;
   }
   const message = optionalString(envelope.message) ?? "unknown error";
-  if (code === -101) {
-    throw new ProviderRequestError(401, `Bilibili credential expired or invalid (code -101): ${message}`, envelope);
+  if (code !== undefined && bilibiliCredentialErrorCodes.has(code)) {
+    throw new ProviderRequestError(401, `Bilibili credential expired or invalid (code ${code}): ${message}`, envelope);
   }
-  throw providerResponseError(`${label} failed (code ${code ?? "unknown"}): ${message}`);
+  const status = code === undefined ? 502 : mapBilibiliErrorStatus(code);
+  if (status === 502) {
+    throw providerResponseError(`${label} failed (code ${code ?? "unknown"}): ${message}`);
+  }
+  throw new ProviderRequestError(status, `${label} failed (code ${code}): ${message}`, envelope);
+}
+
+/** Map a documented non-zero business code to the runtime status it means; unknown codes stay upstream failures. */
+function mapBilibiliErrorStatus(code: number): number {
+  if (bilibiliPermissionErrorCodes.has(code)) {
+    return 403;
+  }
+  if (bilibiliRateLimitErrorCodes.has(code)) {
+    return 429;
+  }
+  if (bilibiliInvalidInputErrorCodes.has(code)) {
+    return 400;
+  }
+  return 502;
 }
 
 /**
@@ -264,7 +293,11 @@ export async function requestBilibiliOAuthToken(input: BilibiliOAuthTokenRequest
   try {
     response = await input.fetcher(url.toString(), {
       method: "POST",
-      headers: { accept: "application/json", "user-agent": providerUserAgent },
+      headers: {
+        accept: "application/json",
+        "content-type": "application/x-www-form-urlencoded",
+        "user-agent": providerUserAgent,
+      },
       redirect: "manual",
       signal: timeout.signal,
     });

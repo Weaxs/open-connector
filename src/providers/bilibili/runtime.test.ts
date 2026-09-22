@@ -77,6 +77,28 @@ describe("readBilibiliEnvelopeData", () => {
     }
   });
 
+  it("maps documented credential, permission, rate-limit and input codes to their statuses", () => {
+    const cases: [number, number][] = [
+      [127001, 401],
+      [127011, 403],
+      [123001, 403],
+      [127306, 429],
+      [4000, 400],
+      [123015, 400],
+      [129005, 400],
+    ];
+    for (const [code, status] of cases) {
+      try {
+        readBilibiliEnvelopeData({ code, message: "x" }, "test");
+        expect.unreachable();
+      } catch (error) {
+        expect(error).toBeInstanceOf(ProviderRequestError);
+        expect((error as ProviderRequestError).status).toBe(status);
+        expect((error as ProviderRequestError).message).toContain(String(code));
+      }
+    }
+  });
+
   it("maps other non-zero codes to a 502 provider error with the message", () => {
     try {
       readBilibiliEnvelopeData({ code: 21010, message: "title too long" }, "archive submit");
