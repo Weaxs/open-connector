@@ -164,7 +164,8 @@ async function readWisburgHttpError(response: Response): Promise<ProviderRequest
 
 function mapWisburgError(code: number, envelope: Record<string, unknown>): ProviderRequestError {
   const message = optionalString(envelope.message) ?? `Wisburg request failed (${code})`;
-  if (code === 401 || code === 403 || code === 404 || code === 429) {
+  // Besides the documented 401/403/404/429 codes, a bare gateway 4xx such as 414 stays a client error.
+  if (code >= 400 && code < 500) {
     return new ProviderRequestError(code, message, envelope);
   }
   // 1001 marks invalid parameters and 1004 an out-of-range pagination cursor.

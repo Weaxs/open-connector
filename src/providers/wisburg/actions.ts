@@ -6,13 +6,13 @@ import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "wisburg";
 
-const reportSchema = s.object("A Wisburg research report list item.", {
+const reportSchema = s.requiredObject("A Wisburg research report list item.", {
   id: s.integer("The report ID."),
   title: s.string("The report title."),
   datetime: s.string("The publication time in ISO 8601 format."),
 });
 
-const reportDetailSchema = s.object("A Wisburg research report detail.", {
+const reportDetailSchema = s.requiredObject("A Wisburg research report detail.", {
   id: s.integer("The report ID."),
   title: s.string("The report title."),
   datetime: s.string("The publication time in ISO 8601 format."),
@@ -27,7 +27,7 @@ const reportDetailSchema = s.object("A Wisburg research report detail.", {
 });
 
 // Earnings call minutes are the only report family whose detail omits `meta`.
-const earningsCallDetailSchema = s.object("A Wisburg earnings call minutes detail.", {
+const earningsCallDetailSchema = s.requiredObject("A Wisburg earnings call minutes detail.", {
   id: s.integer("The earnings call minutes ID."),
   title: s.string("The title."),
   datetime: s.string("The publication time in ISO 8601 format."),
@@ -35,14 +35,14 @@ const earningsCallDetailSchema = s.object("A Wisburg earnings call minutes detai
   summary: s.optional(s.string("The summary in Markdown.")),
 });
 
-const articleSchema = s.object("A Wisburg column article list item.", {
+const articleSchema = s.requiredObject("A Wisburg column article list item.", {
   id: s.integer("The article ID."),
   title: s.string("The article title."),
   datetime: s.string("The publication time in ISO 8601 format."),
   description: s.optional(s.string("The article introduction.")),
 });
 
-const articleDetailSchema = s.object("A Wisburg column article detail.", {
+const articleDetailSchema = s.requiredObject("A Wisburg column article detail.", {
   id: s.integer("The article ID."),
   title: s.string("The article title."),
   datetime: s.string("The publication time in ISO 8601 format."),
@@ -50,21 +50,21 @@ const articleDetailSchema = s.object("A Wisburg column article detail.", {
   body: s.string("The article body in HTML."),
 });
 
-const feedItemSchema = s.object("A Wisburg news feed item.", {
+const feedItemSchema = s.requiredObject("A Wisburg news feed item.", {
   id: s.integer("The feed item ID."),
   title: s.string("The feed item title."),
   datetime: s.string("The publication time in ISO 8601 format."),
   content: s.string("The feed item body in Markdown."),
 });
 
-const imageItemSchema = s.object("A Wisburg image feed item.", {
+const imageItemSchema = s.requiredObject("A Wisburg image feed item.", {
   title: s.string("The image title."),
   datetime: s.string("The publication time in ISO 8601 format."),
   description: s.string("The image description."),
   cover_url: s.string("The cover image URL."),
 });
 
-const mikkoLogSchema = s.object("A Wisburg Mikko log entry. Logs have no title.", {
+const mikkoLogSchema = s.requiredObject("A Wisburg Mikko log entry. Logs have no title.", {
   id: s.integer("The log ID."),
   datetime: s.string("The publication time in ISO 8601 format."),
   content: s.string("The log body in Markdown."),
@@ -92,7 +92,7 @@ const listInputSchema = s.object(
 );
 
 function listOutputSchema(description: string, itemsDescription: string, itemSchema: ReturnType<typeof s.object>) {
-  return s.object(description, {
+  return s.requiredObject(description, {
     requestId: requestIdSchema,
     items: s.array(itemsDescription, itemSchema),
     pageInfo: pageInfoSchema,
@@ -100,13 +100,13 @@ function listOutputSchema(description: string, itemsDescription: string, itemSch
 }
 
 function detailInputSchema(idDescription: string) {
-  return s.object("Input for reading one item by ID.", {
+  return s.requiredObject("Input for reading one item by ID.", {
     id: s.integer(idDescription),
   });
 }
 
 function detailOutputSchema(description: string, key: WisburgDetailKey, itemSchema: ReturnType<typeof s.object>) {
-  return s.object(description, {
+  return s.requiredObject(description, {
     requestId: requestIdSchema,
     [key]: itemSchema,
   });
