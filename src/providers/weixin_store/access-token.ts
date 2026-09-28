@@ -171,7 +171,8 @@ export function isWechatTokenError(errcode: number | null): boolean {
 /**
  * Map a failed WeChat API call to the shared provider error. Rate limits
  * (45009/45011) become 429, the missing-permission 48001 becomes 403, the
- * 4xxxx client errcodes become 400, and everything else becomes a 502.
+ * 4xxxx client errcodes and the invalid qualification-file code become 400,
+ * and everything else becomes a 502.
  */
 export function normalizeWechatApiError(result: WechatApiResult): ProviderRequestError {
   const errcode = readWechatErrcode(result.record);
@@ -189,6 +190,9 @@ export function normalizeWechatApiError(result: WechatApiResult): ProviderReques
   }
   if (errcode === 48001) {
     return new ProviderRequestError(403, message, result.record);
+  }
+  if (errcode === 10020094) {
+    return new ProviderRequestError(400, message, result.record);
   }
   if (errcode !== null && errcode >= 40000 && errcode < 50000) {
     return new ProviderRequestError(400, message, result.record);

@@ -86,6 +86,9 @@ const deliveryProductFieldMap: Record<string, string> = {
 const weixinStoreActionHandlers: ProviderActionHandlers<typeof service, WeixinStoreActionHandler> = {
   async upload_qualification_image(input, context) {
     const file = await readTransitFileInput(input.file, context);
+    if (file.sizeBytes > 2 * 1024 * 1024) {
+      throw providerInputError("file must be at most 2 MB");
+    }
     const formData = new FormData();
     formData.set("media", file.file, file.name);
     return callWechatApi(context, {

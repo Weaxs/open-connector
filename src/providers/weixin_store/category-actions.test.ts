@@ -38,6 +38,41 @@ it("uses the new category protocol and rejects string-valued WeChat errors", asy
   const failure = await executors["weixin_store.apply_category"]!({ categoryInfo }, context);
   expect(failure).toMatchObject({
     ok: false,
-    error: { message: "WeChat API error 10020094: qualification file required" },
+    error: { code: "invalid_input", message: "WeChat API error 10020094: qualification file required" },
   });
+});
+
+it("rejects oversized qualification images before contacting WeChat", async () => {
+  const file = new File([new Uint8Array(2 * 1024 * 1024 + 1)], "qualification.png", { type: "image/png" });
+  const fetcher = vi.fn();
+  vi.stubGlobal("fetch", fetcher);
+  const context: ExecutionContext = {
+    async getCredential() {
+      return {
+        authType: "custom_credential",
+        values: { appId: "category-size-test-app", appSecret: "secret" },
+        profile: { accountId: "category-size-test-app", displayName: "Test store", grantedScopes: [] },
+        metadata: {},
+      };
+    },
+    transitFiles: {
+      maxBytes: 100 * 1024 * 1024,
+      async create() {
+        throw new Error("not used");
+      },
+      async read() {
+        return { file, sizeBytes: file.size, name: file.name, mimeType: file.type };
+      },
+      async delete() {
+        return false;
+      },
+    },
+  };
+
+  const result = await executors["weixin_store.upload_qualification_image"]!(
+    { file: { fileId: "oversized" } },
+    context,
+  );
+  expect(result).toMatchObject({ ok: false, error: { code: "invalid_input" } });
+  expect(fetcher).not.toHaveBeenCalled();
 });
