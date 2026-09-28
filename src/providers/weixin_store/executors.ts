@@ -2,7 +2,14 @@ import type { CredentialValidators, ExecutionContext, ProviderExecutors, Transit
 import type { ProviderActionHandlers, ProviderFetch, ProviderRuntimeHandler } from "../provider-runtime.ts";
 import type { WechatApiResult, WeixinStoreCredential } from "./access-token.ts";
 
-import { compactObject, objectArray, optionalBoolean, optionalInteger, optionalString } from "../../core/cast.ts";
+import {
+  compactObject,
+  objectArray,
+  optionalBoolean,
+  optionalInteger,
+  optionalRecord,
+  optionalString,
+} from "../../core/cast.ts";
 import {
   createProviderFetch,
   defineProviderExecutors,
@@ -77,6 +84,17 @@ const deliveryProductFieldMap: Record<string, string> = {
 };
 
 const weixinStoreActionHandlers: ProviderActionHandlers<typeof service, WeixinStoreActionHandler> = {
+  async upload_qualification_image(input, context) {
+    const file = await readTransitFileInput(input.file, context);
+    const formData = new FormData();
+    formData.set("media", file.file, file.name);
+    return callWechatApi(context, {
+      method: "POST",
+      path: "/shop/ec/basics/qualification/upload",
+      body: formData,
+      timeoutMs: wechatImageUploadTimeoutMs,
+    });
+  },
   upload_image(input, context) {
     const imageUrl = optionalString(input.imageUrl);
     if ((imageUrl === undefined) === (input.file === undefined)) {
@@ -104,6 +122,50 @@ const weixinStoreActionHandlers: ProviderActionHandlers<typeof service, WeixinSt
       method: "POST",
       path: "/shop/ec/category/detail",
       body: { cat_id: readPositiveInteger(input.catId, "catId") },
+    });
+  },
+  apply_category(input, context) {
+    const categoryInfo = optionalRecord(input.categoryInfo);
+    if (!categoryInfo) {
+      throw providerInputError("categoryInfo must be an object");
+    }
+    return callWechatApi(context, {
+      method: "POST",
+      path: "/channels/ec/category/add",
+      body: { category_info: { ...categoryInfo, is_new_apply_cat: true } },
+    });
+  },
+  get_category_application(input, context) {
+    return callWechatApi(context, {
+      method: "POST",
+      path: "/shop/ec/category/getbizcatflowdetail",
+      body: { audit_id: readPositiveInteger(input.auditId, "auditId") },
+    });
+  },
+  list_category_permissions(input, context) {
+    const status = optionalInteger(input.status);
+    return callWechatApi(context, {
+      method: "POST",
+      path: "/shop/ec/category/get_category_relation_list",
+      body: compactObject({ is_filter_status: status !== undefined, status }),
+    });
+  },
+  precheck_product_category(input, context) {
+    return callWechatApi(context, {
+      method: "POST",
+      path: "/channels/ec/product/categoryprecheck",
+      body: compactObject({ cat_id: optionalInteger(input.catId) }),
+    });
+  },
+  get_category_product_rule(input, context) {
+    return callWechatApi(context, {
+      method: "POST",
+      path: "/shop/ec/category/getcategoryproductrule",
+      body: compactObject({
+        cat_id: readPositiveInteger(input.catId, "catId"),
+        release_mode: optionalInteger(input.releaseMode),
+        brand_id: optionalInteger(input.brandId),
+      }),
     });
   },
   list_valid_brands(input, context) {

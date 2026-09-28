@@ -1,7 +1,7 @@
 import type { ProviderFetch } from "../provider-runtime.ts";
 
 import { createHash } from "node:crypto";
-import { optionalInteger, optionalNumber, optionalRecord, optionalString } from "../../core/cast.ts";
+import { optionalIntegerOrNull, optionalNumber, optionalRecord, optionalString } from "../../core/cast.ts";
 import {
   ProviderRequestError,
   providerResponseError,
@@ -160,7 +160,7 @@ export function parseWechatJson(rawText: string): Record<string, unknown> | unde
 
 /** Read the numeric errcode of a WeChat envelope; absent or non-numeric reads as null. */
 export function readWechatErrcode(record: Record<string, unknown> | undefined): number | null {
-  return optionalInteger(record?.errcode) ?? null;
+  return optionalIntegerOrNull(record?.errcode);
 }
 
 /** Whether the errcode marks the access token as invalid, so the caller can refresh and retry once. */
