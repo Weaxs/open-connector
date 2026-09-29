@@ -9,6 +9,7 @@ import {
   optionalInteger,
   optionalRecord,
   optionalString,
+  positiveInteger,
 } from "../../core/cast.ts";
 import {
   createProviderFetch,
@@ -124,7 +125,7 @@ const weixinStoreActionHandlers: ProviderActionHandlers<typeof service, WeixinSt
     return callWechatApi(context, {
       method: "POST",
       path: "/shop/ec/category/detail",
-      body: { cat_id: readPositiveInteger(input.catId, "catId") },
+      body: { cat_id: positiveInteger(input.catId, "catId", providerInputError) },
     });
   },
   apply_category(input, context) {
@@ -135,14 +136,14 @@ const weixinStoreActionHandlers: ProviderActionHandlers<typeof service, WeixinSt
     return callWechatApi(context, {
       method: "POST",
       path: "/channels/ec/category/add",
-      body: { category_info: { ...categoryInfo, is_new_apply_cat: true } },
+      body: { category_info: mapCategoryApplication(categoryInfo) },
     });
   },
   get_category_application(input, context) {
     return callWechatApi(context, {
       method: "POST",
       path: "/shop/ec/category/getbizcatflowdetail",
-      body: { audit_id: readPositiveInteger(input.auditId, "auditId") },
+      body: { audit_id: positiveInteger(input.auditId, "auditId", providerInputError) },
     });
   },
   list_category_permissions(input, context) {
@@ -157,7 +158,9 @@ const weixinStoreActionHandlers: ProviderActionHandlers<typeof service, WeixinSt
     return callWechatApi(context, {
       method: "POST",
       path: "/channels/ec/product/categoryprecheck",
-      body: compactObject({ cat_id: optionalInteger(input.catId) }),
+      body: compactObject({
+        cat_id: input.catId === undefined ? undefined : positiveInteger(input.catId, "catId", providerInputError),
+      }),
     });
   },
   get_category_product_rule(input, context) {
@@ -165,9 +168,10 @@ const weixinStoreActionHandlers: ProviderActionHandlers<typeof service, WeixinSt
       method: "POST",
       path: "/shop/ec/category/getcategoryproductrule",
       body: compactObject({
-        cat_id: readPositiveInteger(input.catId, "catId"),
+        cat_id: positiveInteger(input.catId, "catId", providerInputError),
         release_mode: optionalInteger(input.releaseMode),
-        brand_id: optionalInteger(input.brandId),
+        brand_id:
+          input.brandId === undefined ? undefined : positiveInteger(input.brandId, "brandId", providerInputError),
       }),
     });
   },
@@ -367,7 +371,7 @@ const weixinStoreActionHandlers: ProviderActionHandlers<typeof service, WeixinSt
       path: "/channels/ec/aftersale/rejectapply",
       body: compactObject({
         after_sale_order_id: requiredInputString(input.afterSaleOrderId, "afterSaleOrderId"),
-        reject_reason_type: readPositiveInteger(input.rejectReasonType, "rejectReasonType"),
+        reject_reason_type: positiveInteger(input.rejectReasonType, "rejectReasonType", providerInputError),
         reject_reason: optionalString(input.rejectReason),
       }),
     });
@@ -412,8 +416,8 @@ async function uploadImageFile(
   context: WeixinStoreContext,
   input: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
-  const width = readPositiveInteger(input.width, "width");
-  const height = readPositiveInteger(input.height, "height");
+  const width = positiveInteger(input.width, "width", providerInputError);
+  const height = positiveInteger(input.height, "height", providerInputError);
   const file = await readTransitFileInput(input.file, context);
   const formData = new FormData();
   formData.set("media", file.file, file.name);
@@ -483,6 +487,52 @@ async function executeWechatJsonRequest(
       return { status: response.status, record: parseWechatJson(rawText), rawText };
     },
   );
+}
+
+/**
+ * Build the category_info of a category application: force the certificate-group
+ * protocol and send every id as the number WeChat documents, since callers often
+ * copy them from responses that carry numeric ids as strings.
+ */
+function mapCategoryApplication(categoryInfo: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...categoryInfo,
+    cats_v2: objectArray(categoryInfo.cats_v2, "categoryInfo.cats_v2", providerInputError).map((cat) => ({
+      ...cat,
+      cat_id: positiveInteger(cat.cat_id, "categoryInfo.cats_v2[].cat_id", providerInputError),
+    })),
+    license_group_list: objectArray(
+      categoryInfo.license_group_list,
+      "categoryInfo.license_group_list",
+      providerInputError,
+    ).map((group) => {
+      const license = optionalRecord(group.license) ?? {};
+      return {
+        ...group,
+        license_group_id: positiveInteger(
+          group.license_group_id,
+          "categoryInfo.license_group_list[].license_group_id",
+          providerInputError,
+        ),
+        license: {
+          ...license,
+          license_id: positiveInteger(
+            license.license_id,
+            "categoryInfo.license_group_list[].license.license_id",
+            providerInputError,
+          ),
+        },
+      };
+    }),
+    brand_list:
+      categoryInfo.brand_list === undefined
+        ? undefined
+        : objectArray(categoryInfo.brand_list, "categoryInfo.brand_list", providerInputError).map((brand) => ({
+            ...brand,
+            brand_id: positiveInteger(brand.brand_id, "categoryInfo.brand_list[].brand_id", providerInputError),
+          })),
+    is_new_apply_cat: true,
+  };
 }
 
 /** WeChat only reads deliver_acct_type when deliver_method is 3, and then it is required. */
@@ -593,14 +643,6 @@ function readOffsetLimit(input: Record<string, unknown>): Record<string, unknown
 
 function readPageSize(input: Record<string, unknown>, max: number, defaultValue?: number): number | undefined {
   return readBoundedInteger(input.pageSize, "pageSize", 1, max) ?? defaultValue;
-}
-
-function readPositiveInteger(value: unknown, fieldName: string): number {
-  const parsed = optionalInteger(value);
-  if (parsed === undefined || parsed < 1) {
-    throw providerInputError(`${fieldName} must be a positive integer`);
-  }
-  return parsed;
 }
 
 /** Read a WeChat id that the docs type inconsistently as string or number; numbers are sent in string form. */

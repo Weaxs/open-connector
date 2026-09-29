@@ -1,4 +1,5 @@
 import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -47,6 +48,21 @@ const categoryDetailOutputSchema = s.looseObject("The upstream WeChat category d
   ),
 });
 
+/**
+ * A numeric WeChat id input. WeChat documents ids such as cat_id and brand_id as
+ * numbers but returns them as strings from list_categories and get_category, so
+ * both forms are accepted and the executor sends them upstream as numbers.
+ */
+function numericIdInput(description: string): JsonSchema {
+  return s.union(
+    [
+      s.positiveInteger("The id as a number."),
+      s.stringPattern("^[1-9][0-9]*$", { description: "The id as a numeric string." }),
+    ],
+    { description },
+  );
+}
+
 const qualificationImageOutputSchema = s.looseObject("The uploaded qualification image.", {
   data: s.looseObject("The uploaded file reference.", {
     file_id: s.nonEmptyString("The file id to use in a category or brand qualification application."),
@@ -58,15 +74,15 @@ const categoryApplicationInputSchema = s.looseRequiredObject(
   {
     cats_v2: s.array(
       "The category path from root to leaf, using cat_id values from list_categories.",
-      s.requiredObject("One category in the path.", { cat_id: s.positiveInteger("One category id in the path.") }),
+      s.requiredObject("One category in the path.", { cat_id: numericIdInput("One category id in the path.") }),
       { minItems: 1 },
     ),
     license_group_list: s.array(
       "One selected license for each required certificate group from list_categories; empty when no licenses are required.",
       s.requiredObject("One certificate group selection.", {
-        license_group_id: s.positiveInteger("The required certificate group id."),
+        license_group_id: numericIdInput("The required certificate group id."),
         license: s.requiredObject("The selected license.", {
-          license_id: s.positiveInteger("One permitted license id in the group."),
+          license_id: numericIdInput("One permitted license id in the group."),
           file_id_list: s.stringArray("Qualification image file ids from upload_qualification_image."),
           license_field_list: s.array(
             "The required license fields for this certificate.",
@@ -82,7 +98,7 @@ const categoryApplicationInputSchema = s.looseRequiredObject(
       s.array(
         "Approved brand ids, required when get_category reports attr.is_limit_brand=true.",
         s.requiredObject("An approved brand.", {
-          brand_id: s.positiveInteger("An approved brand id from list_valid_brands."),
+          brand_id: numericIdInput("An approved brand id from list_valid_brands."),
         }),
         { minItems: 1 },
       ),
@@ -354,7 +370,7 @@ export const weixinStoreActions: ProviderActionDefinition[] = [
     description:
       "Get the publishing rules of one leaf category: required product and sale attributes, brand restrictions, deposit, and qualifications.",
     inputSchema: s.actionInput(
-      { catId: s.positiveInteger("The id of a leaf category from list_categories.") },
+      { catId: numericIdInput("The id of a leaf category from list_categories.") },
       ["catId"],
       "The category to inspect.",
     ),
@@ -403,7 +419,7 @@ export const weixinStoreActions: ProviderActionDefinition[] = [
     description:
       "Check whether the store may publish in a leaf category, including category permission, deposit, freight insurance, and store restrictions. Omit catId for store-wide checks only.",
     inputSchema: s.actionInput(
-      { catId: s.positiveInteger("The leaf category id to check; omit for a store-wide check.") },
+      { catId: numericIdInput("The leaf category id to check; omit for a store-wide check.") },
       [],
       "The category to check before publishing.",
     ),
@@ -416,9 +432,9 @@ export const weixinStoreActions: ProviderActionDefinition[] = [
       "Get the category's product attribute, sale attribute, qualification, price, and other publishing rules for the chosen release mode.",
     inputSchema: s.actionInput(
       {
-        catId: s.positiveInteger("The leaf category id."),
+        catId: numericIdInput("The leaf category id."),
         releaseMode: s.union([s.literal(0), s.literal(1)], { description: "0 = normal, 1 = simplified." }),
-        brandId: s.positiveInteger("An approved brand id when publishing a branded product."),
+        brandId: numericIdInput("An approved brand id when publishing a branded product."),
       },
       ["catId", "releaseMode"],
       "The category publishing rules to retrieve.",
